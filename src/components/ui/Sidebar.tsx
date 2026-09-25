@@ -37,6 +37,8 @@ export const Sidebar = () => {
   };
 
   const { totalFiles, totalFolders, totalSize } = getStats();
+  const viewMode = useAppStore(state => state.viewMode);
+  const setViewMode = useAppStore(state => state.setViewMode);
 
   return (
     <div className="absolute top-4 left-4 z-10 w-64 bg-white/90 backdrop-blur-md p-4 rounded-xl shadow-lg border border-gray-100">
@@ -82,6 +84,18 @@ export const Sidebar = () => {
                 <span className="text-xs">Total Code Size</span>
               </div>
               <p className="font-bold text-gray-800">{formatSize(totalSize)}</p>
+          </div>
+          
+          <div className="pt-4 border-t border-gray-200">
+            <button 
+              onClick={() => setViewMode(viewMode === 'fly' ? 'walk' : 'fly')}
+              className="w-full bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition font-semibold py-2 rounded-lg text-sm flex justify-center items-center gap-2"
+            >
+              {viewMode === 'fly' ? 'Switch to Walk Mode (FPV)' : 'Switch to Fly Mode'}
+            </button>
+            <p className="text-[10px] text-gray-400 mt-2 text-center">
+              {viewMode === 'fly' ? 'Use mouse to orbit and zoom.' : 'Use WASD to move and mouse to look around.'}
+            </p>
           </div>
         </div>
       ) : (

@@ -2,8 +2,12 @@
 
 import React, { useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Environment, Sky } from '@react-three/drei';
+import { OrbitControls, Environment, Sky, KeyboardControls } from '@react-three/drei';
+import { Physics, RigidBody } from '@react-three/rapier';
 import { InstancedBuildings } from './InstancedBuildings';
+import { Player } from './Player';
+import { SmokeParticles } from './SmokeParticles';
+import { MockMultiplayer } from './MockMultiplayer';
 import { useAppStore } from '@/store/useAppStore';
 import * as THREE from 'three';
 
@@ -57,22 +61,50 @@ const WeatherSystem = () => {
 };
 
 export const CityScene = () => {
+  const viewMode = useAppStore(state => state.viewMode);
+
   return (
     <div className="w-full h-full relative">
-      <Canvas
-        camera={{ position: [0, 50, 100], fov: 45 }}
-        shadows
+      <KeyboardControls
+        map={[
+          { name: 'forward', keys: ['ArrowUp', 'w', 'W'] },
+          { name: 'backward', keys: ['ArrowDown', 's', 'S'] },
+          { name: 'left', keys: ['ArrowLeft', 'a', 'A'] },
+          { name: 'right', keys: ['ArrowRight', 'd', 'D'] },
+          { name: 'jump', keys: ['Space'] },
+        ]}
       >
+        <Canvas
+          camera={{ position: [0, 50, 100], fov: 45 }}
+          shadows
+        >
         <WeatherSystem />
-        <InstancedBuildings />
+        
+        <Physics gravity={[0, -30, 0]}>
+          <InstancedBuildings />
+          <SmokeParticles />
+          <MockMultiplayer />
+          
+          <RigidBody type="fixed" position={[0, -0.5, 0]}>
+            <mesh receiveShadow>
+              <boxGeometry args={[1000, 1, 1000]} />
+              <meshStandardMaterial color="#1a1a2e" />
+            </mesh>
+          </RigidBody>
 
-        <OrbitControls 
-          makeDefault 
-          maxPolarAngle={Math.PI / 2 - 0.05} // Prevent going below ground
-          minDistance={10}
-          maxDistance={300}
-        />
+          {viewMode === 'walk' && <Player />}
+        </Physics>
+
+        {viewMode === 'fly' && (
+          <OrbitControls 
+            makeDefault 
+            maxPolarAngle={Math.PI / 2 - 0.05} // Prevent going below ground
+            minDistance={10}
+            maxDistance={300}
+          />
+        )}
       </Canvas>
+      </KeyboardControls>
     </div>
   );
 };

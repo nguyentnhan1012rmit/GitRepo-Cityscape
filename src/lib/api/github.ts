@@ -220,7 +220,7 @@ export const fetchWorkflowStatus = async (repoUrl: string, sha: string): Promise
     });
 
     if (data.workflow_runs.length > 0) {
-      const status = data.workflow_runs[0].conclusion; // can be success, failure, neutral, cancelled, etc.
+      const status = data.workflow_runs[0].conclusion;
       if (status === 'success') return 'success';
       if (status === 'failure' || status === 'timed_out') return 'failure';
       return 'pending';
@@ -229,5 +229,39 @@ export const fetchWorkflowStatus = async (repoUrl: string, sha: string): Promise
   } catch (error) {
     console.warn('Failed to fetch workflow status:', error);
     return 'unknown';
+  }
+};
+
+export const fetchOpenPRFiles = async (repoUrl: string): Promise<Set<string>> => {
+  const { owner, repo } = parseRepoUrl(repoUrl);
+  if (!owner || !repo) return new Set();
+
+  const octokit = new Octokit({
+    auth: process.env.NEXT_PUBLIC_GITHUB_TOKEN || undefined,
+  });
+
+  const filesWithIssues = new Set<string>();
+
+  try {
+    const { data: prs } = await octokit.rest.pulls.list({
+      owner,
+      repo,
+      state: 'open',
+      per_page: 5, // Just check the top 5 open PRs for performance
+    });
+
+    for (const pr of prs) {
+      const { data: files } = await octokit.rest.pulls.listFiles({
+        owner,
+        repo,
+        pull_number: pr.number,
+      });
+      files.forEach(f => filesWithIssues.add(f.filename));
+    }
+
+    return filesWithIssues;
+  } catch (error) {
+    console.warn('Failed to fetch open PRs:', error);
+    return filesWithIssues;
   }
 };

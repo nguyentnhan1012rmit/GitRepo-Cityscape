@@ -19,6 +19,7 @@ export interface FileMetadata {
   lastCommitDate?: string;
   author?: string;
   isRecent?: boolean; // True if edited in the last X commits
+  hasIssues?: boolean; // True if file is in an open PR
 }
 
 export interface BuildingBlock {

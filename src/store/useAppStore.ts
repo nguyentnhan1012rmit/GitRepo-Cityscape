@@ -16,6 +16,10 @@ interface AppState {
   currentCommitIndex: number;
   weather: 'clear' | 'storm' | 'unknown';
 
+  // Phase 4 states
+  viewMode: 'fly' | 'walk';
+  setViewMode: (mode: 'fly' | 'walk') => void;
+
   setHoveredBlock: (block: BuildingBlock | null) => void;
   fetchData: (url: string) => Promise<void>;
   fetchMetadataForBlock: (block: BuildingBlock) => Promise<void>;
@@ -32,6 +36,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   timelineCommits: [],
   currentCommitIndex: 0,
   weather: 'clear',
+
+  viewMode: 'fly',
+  setViewMode: (mode) => set({ viewMode: mode }),
 
   setHoveredBlock: (block) => set({ hoveredBlock: block }),
 
@@ -71,10 +78,27 @@ export const useAppStore = create<AppState>((set, get) => ({
         weather: 'clear' // Reset weather on new repo
       });
 
-      // Lazy load timeline history
-      import('@/lib/api/github').then(({ fetchCommitHistory }) => {
+      // Lazy load timeline history and issues
+      import('@/lib/api/github').then(({ fetchCommitHistory, fetchOpenPRFiles }) => {
+        // 1. Timeline
         fetchCommitHistory(url, 30).then((commits) => {
           set({ timelineCommits: commits, currentCommitIndex: 0 });
+        });
+        
+        // 2. Open PRs (Issues)
+        fetchOpenPRFiles(url).then((issueFiles) => {
+          if (issueFiles.size > 0) {
+            set((state) => {
+              if (!state.repoData) return state;
+              const newData = state.repoData.map(block => {
+                if (issueFiles.has(block.userData.path)) {
+                  return { ...block, userData: { ...block.userData, metadata: { ...block.userData.metadata, hasIssues: true } } };
+                }
+                return block;
+              });
+              return { repoData: newData };
+            });
+          }
         });
       });
 
