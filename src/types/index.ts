@@ -15,6 +15,12 @@ export interface HierarchyNode {
   children?: HierarchyNode[];
 }
 
+export interface FileMetadata {
+  lastCommitDate?: string;
+  author?: string;
+  isRecent?: boolean; // True if edited in the last X commits
+}
+
 export interface BuildingBlock {
   id: string;
   name: string;
@@ -29,6 +35,7 @@ export interface BuildingBlock {
   userData: {
     size?: number;
     extension?: string;
+    metadata?: FileMetadata;
     [key: string]: any;
   };
 }

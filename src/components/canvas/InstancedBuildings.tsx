@@ -20,17 +20,27 @@ export const InstancedBuildings = () => {
     const mesh = instancedMeshRef.current;
 
     repoData.forEach((block, i) => {
-      // Set position, scale, and update matrix
-      // Trees (folders) are on the ground (y = 0 or 0.25 if height is 0.5)
-      // Blobs (files) are elevated by half their height
       dummy.position.set(block.x, block.height / 2, block.z);
       dummy.scale.set(block.width, block.height, block.depth);
       dummy.updateMatrix();
       
       mesh.setMatrixAt(i, dummy.matrix);
 
-      // Set color
-      color.set(block.color);
+      // Handle color
+      const meta = block.userData.metadata;
+      
+      if (meta?.isRecent) {
+        // Hot file: bright neon cyan/green
+        color.set('#00ffcc');
+      } else if (meta && !meta.isRecent) {
+        // Lazily fetched old file: make it darker/aged
+        const baseColor = new THREE.Color(block.color);
+        color.set(baseColor.multiplyScalar(0.4)); // Darken by 60%
+      } else {
+        // Standard un-fetched file
+        color.set(block.color);
+      }
+      
       mesh.setColorAt(i, color);
     });
 
