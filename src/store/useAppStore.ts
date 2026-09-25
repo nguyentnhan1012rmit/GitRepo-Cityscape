@@ -1,8 +1,22 @@
 import { create } from 'zustand';
 import { BuildingBlock, FileMetadata } from '@/types';
 import { fetchRepoData, fetchRecentCommitsFiles, fetchFileMetadata } from '@/lib/api/github';
-import { buildHierarchy } from '@/lib/parsers/buildHierarchy';
-import { generateLayout } from '@/lib/math/layoutGenerator';
+
+const generateLayoutWithWorker = (gitNodes: any[]): Promise<BuildingBlock[]> => {
+  return new Promise((resolve, reject) => {
+    const worker = new Worker(new URL('../lib/workers/layoutWorker.ts', import.meta.url));
+    worker.onmessage = (e) => {
+      if (e.data.success) resolve(e.data.buildingBlocks);
+      else reject(new Error(e.data.error));
+      worker.terminate();
+    };
+    worker.onerror = (err) => {
+      reject(err);
+      worker.terminate();
+    };
+    worker.postMessage({ gitNodes });
+  });
+};
 
 interface AppState {
   repoUrl: string;
@@ -56,11 +70,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       // 1. Fetch from GitHub API
       const gitNodes = await fetchRepoData(url);
       
-      // 2. Build Tree Hierarchy
-      const hierarchy = buildHierarchy(gitNodes);
-      
-      // 3. Generate 3D Layout using D3 Treemap
-      let buildingBlocks = generateLayout(hierarchy);
+      // 2 & 3. Build Hierarchy and Generate Layout via Web Worker
+      let buildingBlocks = await generateLayoutWithWorker(gitNodes);
 
       // 4. Fetch recent commits to mark "Neon" hot files
       // Do this non-blockingly or blockingly? Let's do it blockingly for MVP
@@ -148,8 +159,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     
     try {
       const gitNodes = await fetchTreeBySha(repoUrl, targetCommit.sha);
-      const hierarchy = buildHierarchy(gitNodes);
-      let buildingBlocks = generateLayout(hierarchy);
+      let buildingBlocks = await generateLayoutWithWorker(gitNodes);
       
       const status = await fetchWorkflowStatus(repoUrl, targetCommit.sha);
       const weather = status === 'failure' ? 'storm' : (status === 'success' ? 'clear' : 'unknown');
