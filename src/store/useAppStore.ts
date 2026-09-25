@@ -20,6 +20,10 @@ interface AppState {
   viewMode: 'fly' | 'walk';
   setViewMode: (mode: 'fly' | 'walk') => void;
 
+  // Phase 5 states
+  isCinematic: boolean;
+  toggleCinematic: () => void;
+
   setHoveredBlock: (block: BuildingBlock | null) => void;
   fetchData: (url: string) => Promise<void>;
   fetchMetadataForBlock: (block: BuildingBlock) => Promise<void>;
@@ -38,7 +42,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   weather: 'clear',
 
   viewMode: 'fly',
-  setViewMode: (mode) => set({ viewMode: mode }),
+  setViewMode: (mode) => set({ viewMode: mode, isCinematic: false }), // disable cinematic on view switch
+
+  isCinematic: false,
+  toggleCinematic: () => set(state => ({ isCinematic: !state.isCinematic, viewMode: 'fly' })), // switch to fly mode when cinematic
 
   setHoveredBlock: (block) => set({ hoveredBlock: block }),
 

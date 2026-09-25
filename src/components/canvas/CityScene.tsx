@@ -8,6 +8,7 @@ import { InstancedBuildings } from './InstancedBuildings';
 import { Player } from './Player';
 import { SmokeParticles } from './SmokeParticles';
 import { MockMultiplayer } from './MockMultiplayer';
+import { CinematicCamera } from './CinematicCamera';
 import { useAppStore } from '@/store/useAppStore';
 import * as THREE from 'three';
 
@@ -62,6 +63,7 @@ const WeatherSystem = () => {
 
 export const CityScene = () => {
   const viewMode = useAppStore(state => state.viewMode);
+  const isCinematic = useAppStore(state => state.isCinematic);
 
   return (
     <div className="w-full h-full relative">
@@ -77,6 +79,7 @@ export const CityScene = () => {
         <Canvas
           camera={{ position: [0, 50, 100], fov: 45 }}
           shadows
+          gl={{ preserveDrawingBuffer: true, antialias: true }}
         >
         <WeatherSystem />
         
@@ -95,7 +98,9 @@ export const CityScene = () => {
           {viewMode === 'walk' && <Player />}
         </Physics>
 
-        {viewMode === 'fly' && (
+        <CinematicCamera />
+
+        {viewMode === 'fly' && !isCinematic && (
           <OrbitControls 
             makeDefault 
             maxPolarAngle={Math.PI / 2 - 0.05} // Prevent going below ground
