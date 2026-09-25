@@ -17,18 +17,19 @@ const isIgnored = (path: string): boolean => {
   return IGNORED_PATHS.some((ignored) => path === ignored || path.startsWith(`${ignored}/`));
 };
 
-export const fetchRepoData = async (repoUrl: string): Promise<GitNode[]> => {
-  // Parse URL: https://github.com/owner/repo
+const parseRepoUrl = (repoUrl: string) => {
   const urlParts = repoUrl.replace('https://github.com/', '').split('/');
-  if (urlParts.length < 2) {
-    throw new Error('Invalid GitHub repository URL.');
-  }
+  if (urlParts.length < 2) return { owner: null, repo: null };
+  return { 
+    owner: urlParts[0], 
+    repo: urlParts[1].replace('.git', '') 
+  };
+};
 
-  const owner = urlParts[0];
-  const repo = urlParts[1].replace('.git', '');
-  
-  // Note: in a real app, you might want a way to input PAT from UI. 
-  // For now, we will just use unauthenticated requests unless process.env.GITHUB_TOKEN is provided.
+export const fetchRepoData = async (repoUrl: string): Promise<GitNode[]> => {
+  const { owner, repo } = parseRepoUrl(repoUrl);
+  if (!owner || !repo) throw new Error('Invalid GitHub repository URL.');
+
   const octokit = new Octokit({
     auth: process.env.NEXT_PUBLIC_GITHUB_TOKEN || undefined,
   });
@@ -41,11 +42,26 @@ export const fetchRepoData = async (repoUrl: string): Promise<GitNode[]> => {
     });
     const defaultBranch = repoInfo.data.default_branch;
 
-    // 2. Fetch the git tree recursively
+    return fetchTreeBySha(repoUrl, defaultBranch);
+  } catch (error: any) {
+    handleApiError(error);
+  }
+  return [];
+};
+
+export const fetchTreeBySha = async (repoUrl: string, sha: string): Promise<GitNode[]> => {
+  const { owner, repo } = parseRepoUrl(repoUrl);
+  if (!owner || !repo) return [];
+
+  const octokit = new Octokit({
+    auth: process.env.NEXT_PUBLIC_GITHUB_TOKEN || undefined,
+  });
+
+  try {
     const treeData = await octokit.rest.git.getTree({
       owner,
       repo,
-      tree_sha: defaultBranch,
+      tree_sha: sha,
       recursive: '1',
     });
 
@@ -53,7 +69,6 @@ export const fetchRepoData = async (repoUrl: string): Promise<GitNode[]> => {
       console.warn('The repository tree is too large and was truncated by GitHub API.');
     }
 
-    // 3. Filter and map data
     const nodes: GitNode[] = treeData.data.tree
       .filter((node) => node.path && !isIgnored(node.path))
       .map((node) => ({
@@ -67,14 +82,19 @@ export const fetchRepoData = async (repoUrl: string): Promise<GitNode[]> => {
 
     return nodes;
   } catch (error: any) {
-    if (error.status === 403) {
-      throw new Error('GitHub API rate limit exceeded. Please provide a Personal Access Token.');
-    }
-    if (error.status === 404) {
-      throw new Error('Repository not found. Make sure it is public or you have access.');
-    }
-    throw new Error(error.message || 'Error fetching repository data.');
+    handleApiError(error);
   }
+  return [];
+};
+
+const handleApiError = (error: any) => {
+  if (error.status === 403) {
+    throw new Error('GitHub API rate limit exceeded. Please provide a Personal Access Token.');
+  }
+  if (error.status === 404) {
+    throw new Error('Repository not found. Make sure it is public or you have access.');
+  }
+  throw new Error(error.message || 'Error fetching repository data.');
 };
 
 export const fetchRecentCommitsFiles = async (repoUrl: string, limit: number = 10): Promise<Record<string, FileMetadata>> => {
@@ -154,5 +174,60 @@ export const fetchFileMetadata = async (repoUrl: string, path: string): Promise<
   } catch (error) {
     console.warn('Failed to fetch file metadata:', error);
     return null;
+  }
+};
+
+export const fetchCommitHistory = async (repoUrl: string, limit: number = 30) => {
+  const { owner, repo } = parseRepoUrl(repoUrl);
+  if (!owner || !repo) return [];
+
+  const octokit = new Octokit({
+    auth: process.env.NEXT_PUBLIC_GITHUB_TOKEN || undefined,
+  });
+
+  try {
+    const { data: commits } = await octokit.rest.repos.listCommits({
+      owner,
+      repo,
+      per_page: limit,
+    });
+    return commits.map(c => ({
+      sha: c.sha,
+      message: c.commit.message,
+      date: c.commit.author?.date,
+      author: c.commit.author?.name
+    }));
+  } catch (error) {
+    console.warn('Failed to fetch commit history:', error);
+    return [];
+  }
+};
+
+export const fetchWorkflowStatus = async (repoUrl: string, sha: string): Promise<'success' | 'failure' | 'pending' | 'unknown'> => {
+  const { owner, repo } = parseRepoUrl(repoUrl);
+  if (!owner || !repo) return 'unknown';
+
+  const octokit = new Octokit({
+    auth: process.env.NEXT_PUBLIC_GITHUB_TOKEN || undefined,
+  });
+
+  try {
+    const { data } = await octokit.rest.actions.listWorkflowRunsForRepo({
+      owner,
+      repo,
+      head_sha: sha,
+      per_page: 1,
+    });
+
+    if (data.workflow_runs.length > 0) {
+      const status = data.workflow_runs[0].conclusion; // can be success, failure, neutral, cancelled, etc.
+      if (status === 'success') return 'success';
+      if (status === 'failure' || status === 'timed_out') return 'failure';
+      return 'pending';
+    }
+    return 'unknown';
+  } catch (error) {
+    console.warn('Failed to fetch workflow status:', error);
+    return 'unknown';
   }
 };

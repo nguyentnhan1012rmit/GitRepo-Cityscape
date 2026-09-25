@@ -10,9 +10,16 @@ interface AppState {
   isLoading: boolean;
   error: string | null;
   hoveredBlock: BuildingBlock | null;
+  
+  // Phase 3 states
+  timelineCommits: { sha: string; message: string; date?: string; author?: string }[];
+  currentCommitIndex: number;
+  weather: 'clear' | 'storm' | 'unknown';
+
   setHoveredBlock: (block: BuildingBlock | null) => void;
   fetchData: (url: string) => Promise<void>;
   fetchMetadataForBlock: (block: BuildingBlock) => Promise<void>;
+  setTimeMachineIndex: (index: number) => Promise<void>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -21,6 +28,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   isLoading: false,
   error: null,
   hoveredBlock: null,
+
+  timelineCommits: [],
+  currentCommitIndex: 0,
+  weather: 'clear',
 
   setHoveredBlock: (block) => set({ hoveredBlock: block }),
 
@@ -54,7 +65,19 @@ export const useAppStore = create<AppState>((set, get) => ({
         return block;
       });
       
-      set({ repoData: buildingBlocks, isLoading: false });
+      set({ 
+        repoData: buildingBlocks, 
+        isLoading: false,
+        weather: 'clear' // Reset weather on new repo
+      });
+
+      // Lazy load timeline history
+      import('@/lib/api/github').then(({ fetchCommitHistory }) => {
+        fetchCommitHistory(url, 30).then((commits) => {
+          set({ timelineCommits: commits, currentCommitIndex: 0 });
+        });
+      });
+
     } catch (error: any) {
       set({ error: error.message || 'Failed to fetch repository data', isLoading: false });
     }
@@ -80,6 +103,30 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (currentHover && currentHover.id === block.id) {
         set({ hoveredBlock: newData.find(b => b.id === block.id) || null });
       }
+    }
+  },
+
+  setTimeMachineIndex: async (index: number) => {
+    const { timelineCommits, repoUrl } = get();
+    if (!timelineCommits[index]) return;
+    
+    set({ currentCommitIndex: index, isLoading: true });
+    
+    const targetCommit = timelineCommits[index];
+    const { fetchTreeBySha, fetchWorkflowStatus } = await import('@/lib/api/github');
+    
+    try {
+      const gitNodes = await fetchTreeBySha(repoUrl, targetCommit.sha);
+      const hierarchy = buildHierarchy(gitNodes);
+      let buildingBlocks = generateLayout(hierarchy);
+      
+      const status = await fetchWorkflowStatus(repoUrl, targetCommit.sha);
+      const weather = status === 'failure' ? 'storm' : (status === 'success' ? 'clear' : 'unknown');
+      
+      set({ repoData: buildingBlocks, weather, isLoading: false });
+    } catch (e) {
+      console.warn("Time machine failed:", e);
+      set({ isLoading: false });
     }
   }
 }));
