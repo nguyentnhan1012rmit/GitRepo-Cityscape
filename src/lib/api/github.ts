@@ -30,19 +30,16 @@ export const fetchRepoData = async (repoUrl: string): Promise<GitNode[]> => {
   const { owner, repo } = parseRepoUrl(repoUrl);
   if (!owner || !repo) throw new Error('Invalid GitHub repository URL.');
 
-  const octokit = new Octokit({
-    auth: process.env.NEXT_PUBLIC_GITHUB_TOKEN || undefined,
-  });
-
   try {
-    // 1. Get default branch
-    const repoInfo = await octokit.rest.repos.get({
-      owner,
-      repo,
-    });
-    const defaultBranch = repoInfo.data.default_branch;
-
-    return fetchTreeBySha(repoUrl, defaultBranch);
+    const res = await fetch(`/api/repo?owner=${owner}&repo=${repo}`);
+    if (!res.ok) {
+      if (res.status === 403) throw { status: 403 };
+      if (res.status === 404) throw { status: 404 };
+      throw new Error('Failed to fetch from cache layer');
+    }
+    
+    const data = await res.json();
+    return formatTreeNodes(data.tree);
   } catch (error: any) {
     handleApiError(error);
   }
@@ -53,38 +50,36 @@ export const fetchTreeBySha = async (repoUrl: string, sha: string): Promise<GitN
   const { owner, repo } = parseRepoUrl(repoUrl);
   if (!owner || !repo) return [];
 
-  const octokit = new Octokit({
-    auth: process.env.NEXT_PUBLIC_GITHUB_TOKEN || undefined,
-  });
-
   try {
-    const treeData = await octokit.rest.git.getTree({
-      owner,
-      repo,
-      tree_sha: sha,
-      recursive: '1',
-    });
-
-    if (treeData.data.truncated) {
+    const res = await fetch(`/api/repo?owner=${owner}&repo=${repo}&sha=${sha}`);
+    if (!res.ok) {
+      if (res.status === 403) throw { status: 403 };
+      if (res.status === 404) throw { status: 404 };
+      throw new Error('Failed to fetch from cache layer');
+    }
+    
+    const data = await res.json();
+    if (data.truncated) {
       console.warn('The repository tree is too large and was truncated by GitHub API.');
     }
-
-    const nodes: GitNode[] = treeData.data.tree
-      .filter((node) => node.path && !isIgnored(node.path))
-      .map((node) => ({
-        path: node.path as string,
-        mode: node.mode as string,
-        type: node.type as 'tree' | 'blob',
-        sha: node.sha as string,
-        size: node.size,
-        url: node.url as string,
-      }));
-
-    return nodes;
+    return formatTreeNodes(data.tree);
   } catch (error: any) {
     handleApiError(error);
   }
   return [];
+};
+
+const formatTreeNodes = (tree: any[]): GitNode[] => {
+  return tree
+    .filter((node) => node.path && !isIgnored(node.path))
+    .map((node) => ({
+      path: node.path as string,
+      mode: node.mode as string,
+      type: node.type as 'tree' | 'blob',
+      sha: node.sha as string,
+      size: node.size,
+      url: node.url as string,
+    }));
 };
 
 const handleApiError = (error: any) => {
