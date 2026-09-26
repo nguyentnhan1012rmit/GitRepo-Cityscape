@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useAppStore } from '@/store/useAppStore';
@@ -17,7 +17,14 @@ export const SmokeParticles = () => {
 
   const particlesCount = issueBlocks.length * 20; // 20 particles per issue block
   
-  const [positions, velocities] = useMemo(() => {
+  const [buffers, setBuffers] = useState<{ positions: Float32Array; velocities: Float32Array } | null>(null);
+
+  useEffect(() => {
+    if (particlesCount === 0) {
+      setBuffers(null);
+      return;
+    }
+    
     const pos = new Float32Array(particlesCount * 3);
     const vel = new Float32Array(particlesCount * 3);
     
@@ -37,11 +44,11 @@ export const SmokeParticles = () => {
       }
     });
     
-    return [pos, vel];
+    setBuffers({ positions: pos, velocities: vel });
   }, [issueBlocks, particlesCount]);
 
   useFrame((state, delta) => {
-    if (!pointsRef.current || issueBlocks.length === 0) return;
+    if (!pointsRef.current || issueBlocks.length === 0 || !buffers) return;
     const posAttr = pointsRef.current.geometry.attributes.position;
     const pos = posAttr.array as Float32Array;
     
@@ -50,9 +57,9 @@ export const SmokeParticles = () => {
       for (let p = 0; p < 20; p++) {
         const idx = i * 3;
         // Move particle up
-        pos[idx] += velocities[idx] * delta;
-        pos[idx + 1] += velocities[idx + 1] * delta;
-        pos[idx + 2] += velocities[idx + 2] * delta;
+        pos[idx] += buffers.velocities[idx] * delta;
+        pos[idx + 1] += buffers.velocities[idx + 1] * delta;
+        pos[idx + 2] += buffers.velocities[idx + 2] * delta;
         
         // Reset if too high
         if (pos[idx + 1] > block.height + 10) {
@@ -67,15 +74,16 @@ export const SmokeParticles = () => {
     posAttr.needsUpdate = true;
   });
 
-  if (issueBlocks.length === 0) return null;
+  if (issueBlocks.length === 0 || !buffers) return null;
 
   return (
     <points ref={pointsRef}>
       <bufferGeometry>
+        {/* @ts-expect-error - R3F typings for bufferAttribute are overly strict */}
         <bufferAttribute
           attach="attributes-position"
           count={particlesCount}
-          array={positions}
+          array={buffers.positions}
           itemSize={3}
         />
       </bufferGeometry>

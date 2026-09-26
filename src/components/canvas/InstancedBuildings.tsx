@@ -17,11 +17,9 @@ export const InstancedBuildings = () => {
   // Store current animated states for each building
   const currentStates = useRef<Map<string, { x: number, y: number, z: number, w: number, h: number, d: number, color: THREE.Color, targetColor: THREE.Color }>>(new Map());
 
-  // Setup/Teardown and logic to figure out targets
   useEffect(() => {
     if (!repoData || !instancedMeshRef.current) return;
     
-    // We update target states in the map
     const newKeys = new Set<string>();
     
     repoData.forEach((block) => {
@@ -36,7 +34,6 @@ export const InstancedBuildings = () => {
       }
 
       if (!currentStates.current.has(block.id)) {
-        // New block, starts at height 0 (sụp xuống / mọc lên)
         currentStates.current.set(block.id, {
           x: block.x, y: 0, z: block.z,
           w: block.width, h: 0.01, d: block.depth,
@@ -44,15 +41,11 @@ export const InstancedBuildings = () => {
           targetColor: new THREE.Color(targetColorValue)
         });
       } else {
-        // Existing block, update target color but keep current transform to lerp
         const state = currentStates.current.get(block.id)!;
         state.targetColor.set(targetColorValue);
       }
     });
 
-    // For blocks that are removed in this commit, we could animate them down to 0, 
-    // but InstancedMesh instance count changes dynamically. 
-    // For simplicity, we just filter currentStates to only include newKeys.
     const nextStates = new Map();
     repoData.forEach(b => nextStates.set(b.id, currentStates.current.get(b.id)!));
     currentStates.current = nextStates;
@@ -64,7 +57,6 @@ export const InstancedBuildings = () => {
     const mesh = instancedMeshRef.current;
     let needsUpdate = false;
 
-    // A factor for lerping, adjusting for frame delta
     const lerpFactor = 1 - Math.exp(-10 * delta);
 
     repoData.forEach((block, i) => {
@@ -116,7 +108,11 @@ export const InstancedBuildings = () => {
       }}
     >
       <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial />
+      <meshStandardMaterial 
+        roughness={0.3} 
+        metalness={0.6}
+        envMapIntensity={0.8}
+      />
     </instancedMesh>
   );
 };

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Camera, Download, Video } from 'lucide-react';
+import { Camera, Download, Video, VideoOff } from 'lucide-react';
 import { useAppStore } from '@/store/useAppStore';
 import { exportCityToOBJ, takeHighResScreenshot } from '@/lib/utils/export3D';
 
@@ -13,29 +13,29 @@ export const ExportPanel = () => {
   if (!repoData || repoData.length === 0) return null;
 
   return (
-    <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
+    <div className="absolute top-5 right-4 z-20 flex flex-col gap-2 animate-fade-in-up">
       <button 
         onClick={toggleCinematic}
-        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold shadow-lg transition-colors border ${isCinematic ? 'bg-indigo-600 text-white border-indigo-700' : 'bg-white/90 text-gray-700 border-gray-200 hover:bg-gray-50 backdrop-blur-md'}`}
+        className={`neon-btn flex items-center gap-2 text-xs ${isCinematic ? 'neon-btn-magenta pulse-glow' : ''}`}
       >
-        <Video size={18} />
-        {isCinematic ? 'Stop Cinematic Mode' : 'Cinematic Auto-Fly'}
+        {isCinematic ? <VideoOff size={14} /> : <Video size={14} />}
+        {isCinematic ? 'STOP CINEMATIC' : 'CINEMATIC FLY'}
       </button>
 
       <button 
         onClick={takeHighResScreenshot}
-        className="flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-md text-gray-700 hover:bg-gray-50 border border-gray-200 rounded-lg font-semibold shadow-lg transition-colors"
+        className="neon-btn flex items-center gap-2 text-xs"
       >
-        <Camera size={18} />
-        4K Screenshot
+        <Camera size={14} />
+        4K SCREENSHOT
       </button>
 
       <button 
         onClick={() => exportCityToOBJ(repoData)}
-        className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white hover:bg-gray-800 border border-gray-700 rounded-lg font-semibold shadow-lg transition-colors"
+        className="neon-btn neon-btn-magenta flex items-center gap-2 text-xs"
       >
-        <Download size={18} />
-        Export 3D Model (.OBJ)
+        <Download size={14} />
+        EXPORT .OBJ
       </button>
     </div>
   );

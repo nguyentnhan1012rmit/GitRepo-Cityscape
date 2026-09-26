@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useState, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useAppStore } from '@/store/useAppStore';
@@ -10,12 +10,13 @@ export const MockMultiplayer = () => {
   const repoData = useAppStore(state => state.repoData);
   const groupRef = useRef<THREE.Group>(null);
 
+  const [bots, setBots] = useState<{ id: string; position: THREE.Vector3; target: THREE.Vector3; color: THREE.Color; speed: number }[]>([]);
+
   // Generate 5 random bots
-  const bots = useMemo(() => {
-    if (!repoData || repoData.length === 0) return [];
+  useEffect(() => {
+    if (!repoData || repoData.length === 0) return;
     
-    return Array.from({ length: 5 }).map((_, i) => {
-      // Pick a random target building to walk towards
+    const newBots = Array.from({ length: 5 }).map((_, i) => {
       const targetBlock = repoData[Math.floor(Math.random() * repoData.length)];
       
       return {
@@ -26,6 +27,7 @@ export const MockMultiplayer = () => {
         speed: 2 + Math.random() * 2
       };
     });
+    setBots(newBots);
   }, [repoData]);
 
   useFrame((state, delta) => {

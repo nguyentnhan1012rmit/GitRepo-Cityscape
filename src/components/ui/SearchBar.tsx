@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { Search } from 'lucide-react';
+import { Search, Loader2, Zap } from 'lucide-react';
 
 export const SearchBar = () => {
   const [input, setInput] = useState('https://github.com/facebook/react');
@@ -19,29 +19,37 @@ export const SearchBar = () => {
   return (
     <form 
       onSubmit={handleSubmit}
-      className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10 w-full max-w-xl px-4"
+      className="absolute top-5 left-1/2 transform -translate-x-1/2 z-30 w-full max-w-2xl px-4"
     >
-      <div className="relative flex items-center w-full h-12 rounded-lg focus-within:shadow-lg bg-white overflow-hidden shadow-md">
-        <div className="grid place-items-center h-full w-12 text-gray-300">
-          <Search size={20} />
+      <div className="glass-panel flex items-center h-12 overflow-hidden">
+        {/* Icon */}
+        <div className="flex items-center justify-center w-12 h-full text-[var(--neon-cyan)] opacity-60">
+          {isLoading ? (
+            <Loader2 size={18} className="animate-spin" />
+          ) : (
+            <Search size={18} />
+          )}
         </div>
         
+        {/* Input */}
         <input
-          className="peer h-full w-full outline-none text-sm text-gray-700 pr-2 bg-transparent"
+          className="h-full flex-1 bg-transparent outline-none text-sm text-gray-200 placeholder-gray-600 font-mono tracking-wide pr-2"
           type="text"
-          id="search"
+          id="repo-search"
           placeholder="https://github.com/owner/repo"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={isLoading}
         />
         
+        {/* Submit Button */}
         <button 
           type="submit" 
           disabled={isLoading}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-r-lg h-full transition-colors disabled:bg-blue-400"
+          className="neon-btn h-full rounded-none rounded-r-[11px] flex items-center gap-2 border-l-0 px-5"
         >
-          {isLoading ? 'Building...' : 'Render'}
+          <Zap size={14} />
+          <span>{isLoading ? 'BUILDING' : 'RENDER'}</span>
         </button>
       </div>
     </form>

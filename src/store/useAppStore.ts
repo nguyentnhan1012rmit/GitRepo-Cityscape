@@ -109,7 +109,7 @@ export const useAppStore = create<AppState>((set, get) => ({
             set((state) => {
               if (!state.repoData) return state;
               const newData = state.repoData.map(block => {
-                if (issueFiles.has(block.userData.path)) {
+                if (issueFiles.has(block.id)) {
                   return { ...block, userData: { ...block.userData, metadata: { ...block.userData.metadata, hasIssues: true } } };
                 }
                 return block;

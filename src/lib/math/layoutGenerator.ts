@@ -89,6 +89,7 @@ export const generateLayout = (rootNode: HierarchyNode): BuildingBlock[] => {
       height,
       color,
       userData: {
+        path: node.data.path,
         size: node.data.size,
         extension: node.data.type === 'blob' ? node.data.name.split('.').pop() : undefined,
       },
