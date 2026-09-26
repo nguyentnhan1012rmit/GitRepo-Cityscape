@@ -29,6 +29,20 @@ interface AppState {
   timelineCommits: { sha: string; message: string; date?: string; author?: string }[];
   currentCommitIndex: number;
   weather: 'clear' | 'storm' | 'unknown';
+  
+  isReplaying: boolean;
+  replaySpeed: number;
+  startReplay: () => void;
+  stopReplay: () => void;
+  setReplaySpeed: (speed: number) => void;
+
+  dependencyEdges: { source: BuildingBlock; target: BuildingBlock }[];
+  showDependencies: boolean;
+  toggleDependencies: () => void;
+  fetchDependencies: () => Promise<void>;
+
+  summaryCache: Record<string, string>;
+  fetchSummary: (block: BuildingBlock) => Promise<void>;
 
   // Phase 4 states
   viewMode: 'fly' | 'walk';
@@ -37,6 +51,19 @@ interface AppState {
   // Phase 5 states
   isCinematic: boolean;
   toggleCinematic: () => void;
+
+  selectedBlock: BuildingBlock | null;
+  cameraTarget: { x: number; y: number; z: number } | null;
+  selectBlock: (block: BuildingBlock | null) => void;
+
+  isMuted: boolean;
+  toggleMute: () => void;
+
+  inspectedBlock: BuildingBlock | null;
+  inspectBlock: (block: BuildingBlock | null) => void;
+
+  timeOfDay: 'night' | 'day';
+  setTimeOfDay: (t: 'night' | 'day') => void;
 
   setHoveredBlock: (block: BuildingBlock | null) => void;
   fetchData: (url: string) => Promise<void>;
@@ -55,11 +82,118 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentCommitIndex: 0,
   weather: 'clear',
 
+  isReplaying: false,
+  replaySpeed: 1,
+  startReplay: () => {
+    const { timelineCommits } = get();
+    if (timelineCommits.length === 0) return;
+    set({
+      isReplaying: true,
+      currentCommitIndex: timelineCommits.length - 1 // Start from oldest
+    });
+  },
+  stopReplay: () => set({ isReplaying: false }),
+  setReplaySpeed: (speed) => set({ replaySpeed: speed }),
+
+  dependencyEdges: [],
+  showDependencies: false,
+  toggleDependencies: () => set(state => ({ showDependencies: !state.showDependencies })),
+  fetchDependencies: async () => {
+    const { repoUrl, repoData, timelineCommits, currentCommitIndex } = get();
+    if (!repoData) return;
+
+    set({ showDependencies: true });
+
+    // Limit to top 20 JS/TS files by size to prevent rate limiting / massive lag
+    const jsFiles = repoData
+      .filter(b => b.type === 'blob' && (b.id.endsWith('.js') || b.id.endsWith('.jsx') || b.id.endsWith('.ts') || b.id.endsWith('.tsx')))
+      .sort((a, b) => (b.userData.size || 0) - (a.userData.size || 0))
+      .slice(0, 30);
+
+    if (jsFiles.length === 0) return;
+
+    const { fetchFileContent } = await import('@/lib/api/github');
+    const { extractImports } = await import('@/lib/parsers/importResolver');
+    const sha = timelineCommits[currentCommitIndex]?.sha;
+    
+    const edges: { source: BuildingBlock; target: BuildingBlock }[] = [];
+
+    // Promise.all to fetch them in parallel
+    await Promise.all(jsFiles.map(async (sourceBlock) => {
+      const code = await fetchFileContent(repoUrl, sourceBlock.id, sha);
+      if (!code) return;
+
+      const imports = extractImports(code, sourceBlock.id);
+      
+      imports.forEach(importPath => {
+        // Find matching block (importPath usually lacks extension)
+        const targetBlock = repoData.find(b => 
+          b.type === 'blob' && 
+          b.id.startsWith(importPath) && 
+          (b.id === importPath + '.ts' || b.id === importPath + '.tsx' || b.id === importPath + '.js' || b.id === importPath + '.jsx' || b.id === importPath + '/index.ts' || b.id === importPath + '/index.js')
+        );
+        if (targetBlock) {
+          edges.push({ source: sourceBlock, target: targetBlock });
+        }
+      });
+    }));
+
+    set({ dependencyEdges: edges });
+  },
+
+  summaryCache: {},
+  fetchSummary: async (block: BuildingBlock) => {
+    const { repoUrl, summaryCache, timelineCommits, currentCommitIndex } = get();
+    if (block.type !== 'blob' || summaryCache[block.id]) return;
+
+    // Set a temporary "Loading" state so we don't refetch
+    set(state => ({ summaryCache: { ...state.summaryCache, [block.id]: '...' } }));
+
+    try {
+      const sha = timelineCommits[currentCommitIndex]?.sha;
+      const { fetchFileContent } = await import('@/lib/api/github');
+      const code = await fetchFileContent(repoUrl, block.id, sha);
+      if (!code) throw new Error('No code found');
+
+      const res = await fetch('/api/summarize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, filename: block.id }),
+      });
+      const data = await res.json();
+      set(state => ({ summaryCache: { ...state.summaryCache, [block.id]: data.summary } }));
+    } catch (e) {
+      set(state => ({ summaryCache: { ...state.summaryCache, [block.id]: 'Failed to generate summary.' } }));
+    }
+  },
+
   viewMode: 'fly',
   setViewMode: (mode) => set({ viewMode: mode, isCinematic: false }), // disable cinematic on view switch
 
   isCinematic: false,
   toggleCinematic: () => set(state => ({ isCinematic: !state.isCinematic, viewMode: 'fly' })), // switch to fly mode when cinematic
+
+  selectedBlock: null,
+  cameraTarget: null,
+  selectBlock: (block) => {
+    if (block) {
+      set({
+        selectedBlock: block,
+        cameraTarget: { x: block.x, y: block.height + 10, z: block.z + 30 }
+      });
+    } else {
+      set({ selectedBlock: null, cameraTarget: null });
+    }
+  },
+
+  isMuted: false,
+  toggleMute: () => set(state => ({ isMuted: !state.isMuted })),
+
+  inspectedBlock: null,
+  inspectBlock: (block) => set({ inspectedBlock: block }),
+
+  timeOfDay: 'night',
+  setTimeOfDay: (t) => set({ timeOfDay: t }),
 
   setHoveredBlock: (block) => set({ hoveredBlock: block }),
 
@@ -93,8 +227,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ 
         repoData: buildingBlocks, 
         isLoading: false,
-        weather: 'clear' // Reset weather on new repo
+        weather: 'clear', // Reset weather on new repo
+        dependencyEdges: [],
+        showDependencies: false,
+        summaryCache: {}
       });
+
+      if (typeof window !== 'undefined') {
+        const shortUrl = url.replace('https://github.com/', '');
+        window.history.replaceState(null, '', `/?repo=${shortUrl}`);
+      }
 
       // Lazy load timeline history and issues
       import('@/lib/api/github').then(({ fetchCommitHistory, fetchOpenPRFiles }) => {

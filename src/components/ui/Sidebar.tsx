@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
-import { Info, Folder, File, AlertTriangle, Eye, Footprints, ChevronDown, ChevronRight } from 'lucide-react';
+import { Info, Folder, File, AlertTriangle, Eye, Footprints, ChevronDown, ChevronRight, Volume2, VolumeX, Sun, Moon, Network } from 'lucide-react';
+import { FILE_COLOR_MAP } from '@/lib/math/layoutGenerator';
 
 export const Sidebar = () => {
   const repoUrl = useAppStore((state) => state.repoUrl);
@@ -11,7 +12,20 @@ export const Sidebar = () => {
   const viewMode = useAppStore(state => state.viewMode);
   const setViewMode = useAppStore(state => state.setViewMode);
   const weather = useAppStore(state => state.weather);
+  const isMuted = useAppStore(state => state.isMuted);
+  const toggleMute = useAppStore(state => state.toggleMute);
+  const timeOfDay = useAppStore(state => state.timeOfDay);
+  const setTimeOfDay = useAppStore(state => state.setTimeOfDay);
+  const showDependencies = useAppStore(state => state.showDependencies);
+  const toggleDependencies = useAppStore(state => state.toggleDependencies);
+  const fetchDependencies = useAppStore(state => state.fetchDependencies);
+  const dependencyEdges = useAppStore(state => state.dependencyEdges);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setIsMobile(typeof window !== 'undefined' && 'ontouchstart' in window);
+  }, []);
 
   const getStats = () => {
     if (!repoData) return { totalFiles: 0, totalFolders: 0, totalSize: 0, recentCount: 0, issueCount: 0 };
@@ -49,12 +63,49 @@ export const Sidebar = () => {
   const weatherIcon = weather === 'storm' ? '⛈️' : weather === 'clear' ? '☀️' : '🌤️';
   const weatherLabel = weather === 'storm' ? 'CI FAILED' : weather === 'clear' ? 'CI PASSING' : 'UNKNOWN';
 
+  const languageStats = useMemo(() => {
+    if (!repoData) return [];
+    const sizeByLang: Record<string, number> = {};
+
+    repoData.forEach(block => {
+      if (block.type === 'blob' && block.userData.extension) {
+        const ext = block.userData.extension;
+        sizeByLang[ext] = (sizeByLang[ext] || 0) + (block.userData.size || 0);
+      }
+    });
+
+    const total = Object.values(sizeByLang).reduce((a, b) => a + b, 0);
+    return Object.entries(sizeByLang)
+      .map(([ext, size]) => ({
+        ext,
+        size,
+        percentage: total > 0 ? (size / total) * 100 : 0,
+        color: FILE_COLOR_MAP[ext]?.color || '#888888',
+        label: FILE_COLOR_MAP[ext]?.label || ext.toUpperCase(),
+      }))
+      .sort((a, b) => b.size - a.size)
+      .slice(0, 8); // Top 8 languages
+  }, [repoData]);
+
+  const gradient = useMemo(() => {
+    let accumulated = 0;
+    const stops: string[] = [];
+    for (const lang of languageStats) {
+      const start = accumulated;
+      accumulated += lang.percentage;
+      stops.push(`${lang.color} ${start}% ${accumulated}%`);
+    }
+    return `conic-gradient(${stops.join(', ')})`;
+  }, [languageStats]);
+
   return (
-    <div className="absolute top-5 left-4 z-20 w-72 animate-fade-in-up">
+    <div className="absolute bottom-0 md:bottom-auto top-auto md:top-5 left-0 md:left-4 z-20 w-full md:w-72 animate-fade-in-up flex flex-col md:block">
       {/* Header */}
-      <button 
+      <div 
         onClick={() => setIsCollapsed(!isCollapsed)}
         className="glass-panel w-full flex items-center justify-between px-4 py-3 cursor-pointer group"
+        role="button"
+        tabIndex={0}
       >
         <div className="flex items-center gap-2">
           <Info size={16} className="text-[var(--neon-cyan)] opacity-70" />
@@ -65,12 +116,46 @@ export const Sidebar = () => {
             Cityscape
           </h2>
         </div>
-        {isCollapsed ? (
-          <ChevronRight size={14} className="text-gray-500 group-hover:text-[var(--neon-cyan)] transition-colors" />
-        ) : (
-          <ChevronDown size={14} className="text-gray-500 group-hover:text-[var(--neon-cyan)] transition-colors" />
-        )}
-      </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={async (e) => {
+              e.stopPropagation();
+              if (dependencyEdges.length === 0) {
+                await fetchDependencies();
+              } else {
+                toggleDependencies();
+              }
+            }}
+            className={`transition-colors p-1 ${showDependencies ? 'text-[var(--neon-cyan)]' : 'text-gray-500 hover:text-[var(--neon-cyan)]'}`}
+            title="Toggle Dependency Beams"
+          >
+            <Network size={14} />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setTimeOfDay(timeOfDay === 'night' ? 'day' : 'night');
+            }}
+            className="text-gray-500 hover:text-[var(--neon-cyan)] transition-colors p-1"
+          >
+            {timeOfDay === 'night' ? <Sun size={14} /> : <Moon size={14} />}
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleMute();
+            }}
+            className="text-gray-500 hover:text-[var(--neon-cyan)] transition-colors p-1"
+          >
+            {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+          </button>
+          {isCollapsed ? (
+            <ChevronRight size={14} className="text-gray-500 group-hover:text-[var(--neon-cyan)] transition-colors" />
+          ) : (
+            <ChevronDown size={14} className="text-gray-500 group-hover:text-[var(--neon-cyan)] transition-colors" />
+          )}
+        </div>
+      </div>
 
       {/* Collapsible Content */}
       {!isCollapsed && (
@@ -115,6 +200,29 @@ export const Sidebar = () => {
                 <p className="font-bold text-gray-100 font-mono">{formatSize(totalSize)}</p>
               </div>
 
+              {/* Language Breakdown */}
+              <div className="stat-badge">
+                <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Languages</p>
+                <div className="flex gap-4 items-center">
+                  <div className="relative w-16 h-16 shrink-0">
+                    <div
+                      className="w-full h-full rounded-full"
+                      style={{ background: gradient }}
+                    />
+                    <div className="absolute inset-2 rounded-full bg-[var(--surface-0)]" />
+                  </div>
+                  <div className="flex flex-col gap-1 w-full">
+                    {languageStats.slice(0, 4).map(lang => (
+                      <div key={lang.ext} className="flex items-center gap-1.5">
+                        <div className="w-1.5 h-1.5 rounded-sm shrink-0" style={{ backgroundColor: lang.color }} />
+                        <span className="text-[9px] text-gray-400 font-mono w-7">.{lang.ext}</span>
+                        <span className="text-[9px] text-gray-500 ml-auto">{lang.percentage.toFixed(0)}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               {/* Live indicators */}
               <div className="flex items-center gap-3 text-xs">
                 {recentCount > 0 && (
@@ -150,20 +258,22 @@ export const Sidebar = () => {
                     <Eye size={13} />
                     Fly
                   </button>
-                  <button 
-                    onClick={() => setViewMode('walk')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${
-                      viewMode === 'walk' 
-                        ? 'neon-btn neon-btn-magenta' 
-                        : 'bg-white/5 text-gray-500 hover:text-gray-300 hover:bg-white/10 border border-transparent'
-                    }`}
-                  >
-                    <Footprints size={13} />
-                    Walk
-                  </button>
+                  {!isMobile && (
+                    <button 
+                      onClick={() => setViewMode('walk')}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${
+                        viewMode === 'walk' 
+                          ? 'neon-btn neon-btn-magenta' 
+                          : 'bg-white/5 text-gray-500 hover:text-gray-300 hover:bg-white/10 border border-transparent'
+                      }`}
+                    >
+                      <Footprints size={13} />
+                      Walk
+                    </button>
+                  )}
                 </div>
                 <p className="text-[10px] text-gray-600 mt-2 text-center">
-                  {viewMode === 'fly' ? 'Orbit & zoom with mouse' : 'WASD to walk, mouse to look'}
+                  {viewMode === 'fly' ? 'Orbit & zoom with mouse (pinch on mobile)' : 'WASD to walk, mouse to look'}
                 </p>
               </div>
             </>

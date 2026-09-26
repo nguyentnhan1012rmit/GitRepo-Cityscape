@@ -6,6 +6,8 @@ import { useAppStore } from '@/store/useAppStore';
 export const Tooltip3D = () => {
   const hoveredBlock = useAppStore((state) => state.hoveredBlock);
   const fetchMetadataForBlock = useAppStore((state) => state.fetchMetadataForBlock);
+  const fetchSummary = useAppStore((state) => state.fetchSummary);
+  const summaryCache = useAppStore((state) => state.summaryCache);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -21,13 +23,25 @@ export const Tooltip3D = () => {
   }, []);
 
   useEffect(() => {
-    if (hoveredBlock && hoveredBlock.type === 'blob' && !hoveredBlock.userData.metadata) {
-      const timer = setTimeout(() => {
-        fetchMetadataForBlock(hoveredBlock);
-      }, 300);
-      return () => clearTimeout(timer);
+    if (hoveredBlock && hoveredBlock.type === 'blob') {
+      const timers: NodeJS.Timeout[] = [];
+      
+      if (!hoveredBlock.userData.metadata) {
+        timers.push(setTimeout(() => {
+          fetchMetadataForBlock(hoveredBlock);
+        }, 300));
+      }
+
+      // Fetch AI summary after 2 seconds of hover
+      if (!summaryCache[hoveredBlock.id]) {
+        timers.push(setTimeout(() => {
+          fetchSummary(hoveredBlock);
+        }, 2000));
+      }
+
+      return () => timers.forEach(clearTimeout);
     }
-  }, [hoveredBlock, fetchMetadataForBlock]);
+  }, [hoveredBlock, fetchMetadataForBlock, fetchSummary, summaryCache]);
 
   if (!hoveredBlock) return null;
 
@@ -106,6 +120,18 @@ export const Tooltip3D = () => {
 
         {!meta && hoveredBlock.type === 'blob' && (
           <p className="text-[10px] text-gray-600 italic animate-pulse mt-1 font-mono">Scanning metadata...</p>
+        )}
+
+        {/* AI Summary */}
+        {hoveredBlock.type === 'blob' && summaryCache[hoveredBlock.id] && (
+          <div className="mt-2 pt-2 border-t border-white/5">
+            <div className="flex items-start gap-2">
+              <span className="text-xs mt-0.5">🤖</span>
+              <p className={`text-[10px] font-mono leading-relaxed ${summaryCache[hoveredBlock.id] === '...' ? 'text-gray-500 animate-pulse' : 'text-[var(--neon-cyan)]'}`}>
+                {summaryCache[hoveredBlock.id] === '...' ? 'Synthesizing...' : summaryCache[hoveredBlock.id]}
+              </p>
+            </div>
+          </div>
         )}
 
         {/* Footer stats */}

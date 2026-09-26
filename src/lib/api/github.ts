@@ -260,3 +260,32 @@ export const fetchOpenPRFiles = async (repoUrl: string): Promise<Set<string>> =>
     return filesWithIssues;
   }
 };
+
+export const fetchFileContent = async (
+  repoUrl: string,
+  path: string,
+  sha?: string
+): Promise<string | null> => {
+  const { owner, repo } = parseRepoUrl(repoUrl);
+  if (!owner || !repo) return null;
+
+  const octokit = new Octokit({
+    auth: process.env.NEXT_PUBLIC_GITHUB_TOKEN || undefined,
+  });
+
+  try {
+    const { data } = await octokit.rest.repos.getContent({
+      owner, 
+      repo, 
+      path,
+      ref: sha || undefined,
+    });
+
+    if ('content' in data && data.encoding === 'base64') {
+      return atob(data.content);
+    }
+    return null;
+  } catch {
+    return null;
+  }
+};

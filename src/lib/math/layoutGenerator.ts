@@ -1,37 +1,28 @@
 import * as d3 from 'd3-hierarchy';
 import { HierarchyNode, BuildingBlock } from '@/types';
 
-const TOTAL_WIDTH = 100;
-const TOTAL_DEPTH = 100;
+const TOTAL_WIDTH = 400;
+const TOTAL_DEPTH = 400;
 const HEIGHT_SCALE_FACTOR = 1.5;
 
+export const FILE_COLOR_MAP: Record<string, { color: string; label: string }> = {
+  ts:   { color: '#3178c6', label: 'TypeScript' },
+  tsx:  { color: '#3178c6', label: 'TypeScript JSX' },
+  js:   { color: '#f7df1e', label: 'JavaScript' },
+  jsx:  { color: '#f7df1e', label: 'JavaScript JSX' },
+  json: { color: '#000000', label: 'JSON' },
+  css:  { color: '#1572b6', label: 'CSS' },
+  scss: { color: '#1572b6', label: 'SCSS' },
+  html: { color: '#e34f26', label: 'HTML' },
+  md:   { color: '#ffffff', label: 'Markdown' },
+  py:   { color: '#3776ab', label: 'Python' },
+  rs:   { color: '#dea584', label: 'Rust' },
+  go:   { color: '#00add8', label: 'Go' },
+};
+
 const getFileColor = (filename: string): string => {
-  const ext = filename.split('.').pop()?.toLowerCase();
-  switch (ext) {
-    case 'ts':
-    case 'tsx':
-      return '#3178c6'; // Blue
-    case 'js':
-    case 'jsx':
-      return '#f7df1e'; // Yellow
-    case 'json':
-      return '#000000'; // Black
-    case 'css':
-    case 'scss':
-      return '#1572b6'; // Dark blue
-    case 'html':
-      return '#e34f26'; // Orange
-    case 'md':
-      return '#ffffff'; // White
-    case 'py':
-      return '#3776ab'; // Python Blue
-    case 'rs':
-      return '#dea584'; // Rust
-    case 'go':
-      return '#00add8'; // Go cyan
-    default:
-      return '#888888'; // Grey for unknown
-  }
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  return FILE_COLOR_MAP[ext]?.color || '#888888';
 };
 
 export const generateLayout = (rootNode: HierarchyNode): BuildingBlock[] => {

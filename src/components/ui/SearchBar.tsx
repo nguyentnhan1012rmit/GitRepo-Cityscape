@@ -9,19 +9,27 @@ export const SearchBar = () => {
   const fetchData = useAppStore((state) => state.fetchData);
   const isLoading = useAppStore((state) => state.isLoading);
 
+  const repoUrl = useAppStore(state => state.repoUrl);
+
+  React.useEffect(() => {
+    if (repoUrl) setInput(repoUrl);
+  }, [repoUrl]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input && !isLoading) {
       fetchData(input);
+      const shortUrl = input.replace('https://github.com/', '');
+      window.history.replaceState(null, '', `/?repo=${shortUrl}`);
     }
   };
 
   return (
     <form 
       onSubmit={handleSubmit}
-      className="absolute top-5 left-1/2 transform -translate-x-1/2 z-30 w-full max-w-2xl px-4"
+      className="w-full flex-1"
     >
-      <div className="glass-panel flex items-center h-12 overflow-hidden">
+      <div className="glass-panel flex items-center h-14 md:h-12 overflow-hidden">
         {/* Icon */}
         <div className="flex items-center justify-center w-12 h-full text-[var(--neon-cyan)] opacity-60">
           {isLoading ? (

@@ -3,6 +3,7 @@
 import React from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { Clock, GitCommit, User } from 'lucide-react';
+import { ReplayControls } from './ReplayControls';
 
 export const Timeline = () => {
   const commits = useAppStore((state) => state.timelineCommits);
@@ -49,16 +50,20 @@ export const Timeline = () => {
                 <span className="truncate max-w-sm">{currentCommit?.message.split('\n')[0]}</span>
               </div>
             </div>
-            <div className="text-right">
-              {currentCommit?.author && (
-                <div className="flex items-center gap-1.5 text-gray-500 mb-0.5 justify-end">
-                  <User size={10} />
-                  <span className="text-[10px] font-mono">{currentCommit.author}</span>
-                </div>
-              )}
-              <p className="text-xs font-mono text-gray-300">
-                {currentCommit?.date ? new Date(currentCommit.date).toLocaleDateString() : '—'}
-              </p>
+            
+            <div className="flex items-center gap-4">
+              <ReplayControls />
+              <div className="text-right">
+                {currentCommit?.author && (
+                  <div className="flex items-center gap-1.5 text-gray-500 mb-0.5 justify-end">
+                    <User size={10} />
+                    <span className="text-[10px] font-mono">{currentCommit.author}</span>
+                  </div>
+                )}
+                <p className="text-xs font-mono text-gray-300">
+                  {currentCommit?.date ? new Date(currentCommit.date).toLocaleDateString() : '—'}
+                </p>
+              </div>
             </div>
           </div>
 

@@ -10,6 +10,9 @@ import { SmokeParticles } from './SmokeParticles';
 import { MultiplayerSystem } from './MultiplayerSystem';
 import { CinematicCamera } from './CinematicCamera';
 import { CityAudio } from './CityAudio';
+import { HighlightRing } from './HighlightRing';
+import { HeatmapGround } from './HeatmapGround';
+import { DependencyBeams } from './DependencyBeams';
 import { useAppStore } from '@/store/useAppStore';
 import * as THREE from 'three';
 
@@ -25,6 +28,8 @@ const useIsSecureContext = () => {
 const WeatherSystem = () => {
   const weather = useAppStore(state => state.weather);
   const lightningRef = useRef<THREE.PointLight>(null);
+
+  const timeOfDay = useAppStore(state => state.timeOfDay);
 
   useFrame(() => {
     if (weather === 'storm' && lightningRef.current) {
@@ -46,6 +51,18 @@ const WeatherSystem = () => {
         <directionalLight castShadow position={[50, 100, 50]} intensity={0.2} color="#445566" />
         <Stars radius={300} depth={100} count={2000} factor={4} saturation={0} fade speed={2} />
         <Environment preset="night" />
+      </>
+    );
+  }
+
+  if (timeOfDay === 'day') {
+    return (
+      <>
+        <color attach="background" args={['#87ceeb']} />
+        <ambientLight intensity={0.6} />
+        <directionalLight position={[50, 100, 50]} intensity={2} castShadow />
+        <Sky sunPosition={[50, 100, 50]} />
+        <Environment preset="city" />
       </>
     );
   }
@@ -76,25 +93,21 @@ const WeatherSystem = () => {
   );
 };
 
-// Cyberpunk neon grid ground plane
-const GroundPlane = () => {
-  return (
-    <RigidBody type="fixed" position={[0, -0.5, 0]}>
-      <mesh receiveShadow>
-        <boxGeometry args={[1000, 1, 1000]} />
-        <meshStandardMaterial 
-          color="#0a0a1e" 
-          roughness={0.9}
-          metalness={0.1}
-        />
-      </mesh>
-      {/* Grid lines on ground */}
-      <gridHelper 
-        args={[200, 40, '#0a2a3a', '#0a1a2a']} 
-        position={[0, 0.51, 0]}
-      />
-    </RigidBody>
-  );
+
+
+const CameraController = () => {
+  const cameraTarget = useAppStore(state => state.cameraTarget);
+  const viewMode = useAppStore(state => state.viewMode);
+  const isCinematic = useAppStore(state => state.isCinematic);
+
+  useFrame((state) => {
+    if (!cameraTarget || viewMode !== 'fly' || isCinematic) return;
+    const target = new THREE.Vector3(cameraTarget.x, cameraTarget.y, cameraTarget.z);
+    state.camera.position.lerp(target, 0.03);
+    state.camera.lookAt(cameraTarget.x, 0, cameraTarget.z - 30);
+  });
+
+  return null;
 };
 
 export const CityScene = () => {
@@ -125,11 +138,14 @@ export const CityScene = () => {
             <InstancedBuildings />
             <SmokeParticles />
             <MultiplayerSystem />
-            <GroundPlane />
+            <HeatmapGround />
+            <DependencyBeams />
             {viewMode === 'walk' && <Player />}
+            <HighlightRing />
           </Physics>
 
           <CinematicCamera />
+          <CameraController />
 
           {viewMode === 'fly' && !isCinematic && (
             <OrbitControls 

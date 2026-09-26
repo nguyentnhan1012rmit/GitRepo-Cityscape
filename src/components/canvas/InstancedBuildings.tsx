@@ -8,6 +8,8 @@ import { useAppStore } from '@/store/useAppStore';
 export const InstancedBuildings = () => {
   const repoData = useAppStore((state) => state.repoData);
   const setHoveredBlock = useAppStore((state) => state.setHoveredBlock);
+  const inspectBlock = useAppStore((state) => state.inspectBlock);
+  const timeOfDay = useAppStore((state) => state.timeOfDay);
 
   const instancedMeshRef = useRef<THREE.InstancedMesh>(null);
   
@@ -103,14 +105,22 @@ export const InstancedBuildings = () => {
           setHoveredBlock(block);
         }
       }}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        if (e.instanceId !== undefined) {
+          const block = repoData[e.instanceId];
+          inspectBlock(block);
+          setHoveredBlock(block); // Also set hovered for mobile touch
+        }
+      }}
       onPointerOut={() => {
         setHoveredBlock(null);
       }}
     >
       <boxGeometry args={[1, 1, 1]} />
       <meshStandardMaterial 
-        roughness={0.3} 
-        metalness={0.6}
+        roughness={timeOfDay === 'day' ? 0.7 : 0.3} 
+        metalness={timeOfDay === 'day' ? 0.2 : 0.6}
         envMapIntensity={0.8}
       />
     </instancedMesh>

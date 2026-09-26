@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Orbitron } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -12,10 +12,19 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const orbitron = Orbitron({
+  variable: "--font-orbitron",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+});
+
 export const metadata: Metadata = {
   title: "GitRepo Cityscape — Visualize Code as a 3D City",
   description: "Transform any GitHub repository into a living cyberpunk-style 3D metropolis. Folders become districts, files become skyscrapers, and code complexity shapes the skyline.",
   keywords: ["GitHub", "3D visualization", "code city", "repository", "Three.js", "cyberpunk"],
+  openGraph: {
+    images: ['/api/og'],
+  },
 };
 
 export default function RootLayout({
@@ -26,17 +35,8 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${orbitron.variable} h-full antialiased`}
     >
-      <head>
-        {/* Orbitron for cyberpunk display headings */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap"
-          rel="stylesheet"
-        />
-      </head>
       <body className="min-h-full flex flex-col bg-[#0a0a14]">{children}</body>
     </html>
   );
