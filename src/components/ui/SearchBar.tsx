@@ -46,10 +46,23 @@ export const SearchBar = () => {
         <button 
           type="submit" 
           disabled={isLoading}
-          className="neon-btn h-full rounded-none rounded-r-[11px] flex items-center gap-2 border-l-0 px-5"
+          className="group relative h-full px-6 flex items-center gap-2 font-bold text-xs uppercase tracking-widest transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed border-l border-white/5 overflow-hidden"
+          style={{
+            background: isLoading 
+              ? 'linear-gradient(135deg, #1a3a5c, #0a2a4a)' 
+              : 'linear-gradient(135deg, #00c8ff, #0066ff)',
+            color: '#fff',
+            textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+            borderRadius: '0 11px 11px 0',
+            boxShadow: isLoading 
+              ? 'none' 
+              : '0 0 20px rgba(0, 200, 255, 0.3), inset 0 1px 0 rgba(255,255,255,0.15)',
+          }}
         >
-          <Zap size={14} />
-          <span>{isLoading ? 'BUILDING' : 'RENDER'}</span>
+          {/* Hover shimmer effect */}
+          <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-700 ease-in-out" />
+          <Zap size={14} className={isLoading ? 'animate-spin' : 'group-hover:scale-125 transition-transform duration-200'} />
+          <span className="relative">{isLoading ? 'BUILDING' : 'RENDER'}</span>
         </button>
       </div>
     </form>
